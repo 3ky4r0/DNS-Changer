@@ -1,69 +1,60 @@
 const DNS_URL = "https://raw.githubusercontent.com/ChrisTitusTech/winutil/refs/heads/main/config/dns.json";
 
 let dnsData = {};
-let selectedKey = null;
 
-const dnsGrid = document.getElementById("dnsGrid");
+const dnsList = document.getElementById("dnsList");
 const loadingEl = document.getElementById("loading");
 const errorEl = document.getElementById("error");
-const selectedNameEl = document.getElementById("selectedName");
-const downloadBtn = document.getElementById("downloadBtn");
 const dhcpBtn = document.getElementById("dhcpBtn");
 const retryBtn = document.getElementById("retryBtn");
 
 async function fetchDNS() {
   loadingEl.classList.remove("hidden");
   errorEl.classList.add("hidden");
-  dnsGrid.innerHTML = "";
+  dnsList.innerHTML = "";
 
   try {
     const res = await fetch(DNS_URL);
     if (!res.ok) throw new Error();
     dnsData = await res.json();
     loadingEl.classList.add("hidden");
-    renderCards(dnsData);
+    renderList(dnsData);
   } catch (err) {
     loadingEl.classList.add("hidden");
     errorEl.classList.remove("hidden");
-    lucide.createIcons();
   }
+  lucide.createIcons();
 }
 
-function renderCards(data) {
-  dnsGrid.innerHTML = "";
+function renderList(data) {
+  dnsList.innerHTML = "";
   const keys = Object.keys(data);
 
   keys.forEach(key => {
     const item = data[key];
-    const card = document.createElement("div");
-    card.className = `dns-card ${selectedKey === key ? "active" : ""}`;
+    const row = document.createElement("div");
+    row.className = "dns-item";
     
     const v4 = [item.Primary, item.Secondary].filter(Boolean).join(" · ") || "N/A";
     const v6 = [item.Primary6, item.Secondary6].filter(Boolean).join(" · ") || "N/A";
 
-    card.innerHTML = `
-      <div class="card-header">
-        <span class="card-title" title="${escapeHtml(key)}">${escapeHtml(key)}</span>
-        <i data-lucide="${selectedKey === key ? 'check-circle-2' : 'circle'}" class="check-icon"></i>
+    row.innerHTML = `
+      <div class="dns-info">
+        <span class="dns-title">${escapeHtml(key)}</span>
+        <div class="ip-list">IPv4: ${escapeHtml(v4)} | IPv6: ${escapeHtml(v6)}</div>
       </div>
-      <div class="ip-list">
-        <div>IPv4: ${escapeHtml(v4)}</div>
-        <div>IPv6: ${escapeHtml(v6)}</div>
-      </div>
+      <button class="btn btn-primary download-item-btn" data-key="${escapeHtml(key)}">
+        Download .BAT
+      </button>
     `;
 
-    card.addEventListener("click", () => selectProvider(key));
-    dnsGrid.appendChild(card);
+    row.querySelector(".download-item-btn").addEventListener("click", () => {
+      const script = generateBatScript(key, item);
+      downloadFile(`${key.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`, script);
+    });
+
+    dnsList.appendChild(row);
   });
-
-  lucide.createIcons();
-}
-
-function selectProvider(key) {
-  selectedKey = key;
-  selectedNameEl.textContent = key;
-  downloadBtn.disabled = false;
-  renderCards(dnsData);
 }
 
 function escapeHtml(str) {
@@ -105,13 +96,14 @@ function generateBatScript(providerName, providerData) {
   psScript += `}; Write-Host 'Flushing DNS cache...'; ipconfig /flushdns > $null; Write-Host 'DNS configured successfully.' -ForegroundColor Green;`;
 
   return `@echo off
-:: WinDNS Script - ${providerName}
+:: Self-elevate script to Administrator
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo Please run this file as Administrator.
-    pause
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
     exit /b
 )
+
+:: DNS Changer - ${providerName}
 powershell -NoProfile -ExecutionPolicy Bypass -Command "${psScript}"
 pause
 `;
@@ -126,13 +118,14 @@ function generateDHCPBatScript() {
     `}; Write-Host 'Flushing DNS cache...'; ipconfig /flushdns > $null; Write-Host 'DHCP restored successfully.' -ForegroundColor Green;`;
 
   return `@echo off
-:: WinDNS Script - Restore DHCP
+:: Self-elevate script to Administrator
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo Please run this file as Administrator.
-    pause
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
     exit /b
 )
+
+:: DNS Changer - Restore DHCP
 powershell -NoProfile -ExecutionPolicy Bypass -Command "${psScript}"
 pause
 `;
@@ -146,12 +139,6 @@ function downloadFile(filename, text) {
   link.click();
   URL.revokeObjectURL(link.href);
 }
-
-downloadBtn.addEventListener("click", () => {
-  if (!selectedKey || !dnsData[selectedKey]) return;
-  const script = generateBatScript(selectedKey, dnsData[selectedKey]);
-  downloadFile(`${selectedKey.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`, script);
-});
 
 dhcpBtn.addEventListener("click", () => {
   const script = generateDHCPBatScript();
