@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DNS Changer</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="logo">
+        <i data-lucide="network"></i>
+        <h1>DNS Changer</h1>
+      </div>
+      <button id="dhcpBtn" class="btn">
+        <span>Reset DHCP</span>
+      </button>
+    </header>
+
+    <main class="content-area">
+      <div id="loading" class="status-box">
+        <i data-lucide="loader-2" class="spin"></i>
+        <span>Loading...</span>
+      </div>
+      <div id="error" class="status-box hidden">
+        <i data-lucide="alert-circle"></i>
+        <span>Failed to load data.</span>
+        <button id="retryBtn" class="btn">Retry</button>
+      </div>
+      <div id="dnsGrid" class="dns-grid"></div>
+    </main>
+
+    <footer class="bottom-bar">
+      <div class="selected-info">
+        <strong id="selectedName">No provider selected</strong>
+      </div>
+      <button id="downloadBtn" class="btn btn-primary" disabled>
+        <i data-lucide="download"></i>
+        <span>Download .BAT</span>
+      </button>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
