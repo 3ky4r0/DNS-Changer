@@ -8,7 +8,7 @@
 body {
   background: #fff;
   color: #111;
-  padding: 20px;
+  padding: 0 20px 20px;
 }
 
 .app {
@@ -20,10 +20,16 @@ body {
 }
 
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 12px;
+  padding: 16px 0 12px;
   border-bottom: 1px solid #eee;
 }
 
@@ -39,8 +45,19 @@ body {
 }
 
 .logo h1 {
-  font-size: 18px;
-  font-weight: 600;
+  font-family: 'Grand Hotel', cursive, sans-serif;
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+
+.logo-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .header-actions {
@@ -98,35 +115,7 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-}
-
-.dns-item:hover {
-  border-color: #ccc;
-  background: #fafafa;
-}
-
-.btn.download-item-btn {
-  visibility: hidden;
-  background: transparent;
-  border: none;
-  padding: 8px;
-  justify-content: center;
-  color: inherit;
-}
-
-.btn.download-item-btn:hover {
-  background: #eee;
-}
-
-.dns-item:hover .download-item-btn,
-.dns-item:focus-within .download-item-btn {
-  visibility: visible;
-}
-
-@media (hover: none) {
-  .download-item-btn {
-    visibility: visible;
-  }
+  cursor: pointer;
 }
 
 .dns-info {
@@ -149,12 +138,28 @@ body {
 }
 
 .status-box {
-  padding: 40px 0;
+  padding: 60px 0;
   color: #666;
   font-size: 13px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid #eee;
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .unsupported-device {
@@ -191,6 +196,50 @@ body {
   color: #666;
 }
 
+/* Detail Sub-page View */
+.detail-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-icon-btn {
+  width: 35px;
+  height: 35px;
+  padding: 0;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-icon-btn i,
+.btn-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.code-preview {
+  background: transparent;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #111;
+  margin: 0;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
 .hidden {
   display: none !important;
 }
@@ -203,6 +252,7 @@ body {
   }
 
   .header {
+    background: rgba(40, 40, 40, 0.92);
     border-color: #3f3f3f;
   }
 
@@ -230,20 +280,22 @@ body {
     background-color: #282828;
   }
 
-  .dns-item:hover {
-    border-color: #666;
-    background-color: #303030;
-  }
-
   .ip-list {
     color: #aaa;
   }
 
-  .btn.download-item-btn:hover {
-    background-color: #444;
-  }
-
   .unsupported-content p {
     color: #aaa;
+  }
+
+  .code-preview {
+    background: transparent;
+    border-color: #3f3f3f;
+    color: #e1e1e1;
+  }
+
+  .spinner {
+    border-color: #3f3f3f;
+    border-top-color: #e1e1e1;
   }
 }

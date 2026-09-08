@@ -43,14 +43,12 @@ function renderList(data) {
         <span class="dns-title">${escapeHtml(key)}</span>
         <div class="ip-list">IPv4: ${escapeHtml(v4)} | IPv6: ${escapeHtml(v6)}</div>
       </div>
-      <button class="btn download-item-btn" data-key="${escapeHtml(key)}" title="Download .BAT" aria-label="Download .BAT">
-        <i data-lucide="download"></i>
-      </button>
     `;
 
-    row.querySelector(".download-item-btn").addEventListener("click", () => {
+    row.addEventListener("click", () => {
       const script = generateBatScript(key, item);
-      downloadFile(`${key.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`, script);
+      const filename = `${key.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`;
+      openPreviewPage(filename, script, key, key);
     });
 
     dnsList.appendChild(row);
@@ -140,21 +138,33 @@ function downloadFile(filename, text) {
   URL.revokeObjectURL(link.href);
 }
 
+function openPreviewPage(filename, code, key, title) {
+  sessionStorage.setItem("preview_script", JSON.stringify({ filename, code, title: title || key }));
+  window.location.href = `preview.html?key=${encodeURIComponent(key)}`;
+}
+
 const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
   (navigator.userAgentData && navigator.userAgentData.mobile) ||
   (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+
+if (window.location.pathname.endsWith("/index.html")) {
+  try {
+    const cleanHome = window.location.pathname.replace(/\/index\.html$/, "/");
+    window.history.replaceState({}, document.title, cleanHome + window.location.search + window.location.hash);
+  } catch (e) {}
+}
 
 if (isMobile) {
   document.getElementById("app")?.classList.add("hidden");
   document.getElementById("unsupportedDevice")?.classList.remove("hidden");
   lucide.createIcons();
 } else {
-  dhcpBtn.addEventListener("click", () => {
+  dhcpBtn?.addEventListener("click", () => {
     const script = generateDHCPBatScript();
-    downloadFile("Restore_DHCP_DNS.bat", script);
+    openPreviewPage("Restore_DHCP_DNS.bat", script, "Reset-DHCP", "Reset DHCP");
   });
 
-  retryBtn.addEventListener("click", fetchDNS);
+  retryBtn?.addEventListener("click", fetchDNS);
 
   lucide.createIcons();
   fetchDNS();

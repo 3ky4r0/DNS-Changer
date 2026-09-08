@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DNS Changer</title>
+  <title>Script Preview - DNS Changer</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +23,9 @@
   <div id="app" class="app">
     <header class="header">
       <div class="logo">
-        <h1>DNS Changer</h1>
+        <a href="index.html" class="logo-link">
+          <h1>DNS Changer</h1>
+        </a>
       </div>
       <div class="header-actions">
         <button id="dhcpBtn" class="btn">Reset DHCP</button>
@@ -31,18 +33,19 @@
       </div>
     </header>
 
-    <main class="content-area">
-      <div id="loading" class="status-box">
-        <div class="spinner"></div>
+    <main class="content-area detail-view">
+      <pre class="code-preview"><code id="detailCode"></code></pre>
+      <div class="detail-actions">
+        <button id="copyCodeBtn" class="btn btn-icon-btn" title="Copy" aria-label="Copy">
+          <i data-lucide="copy"></i>
+        </button>
+        <button id="downloadBtn" class="btn btn-icon-btn" title="Download .BAT" aria-label="Download .BAT">
+          <i data-lucide="download"></i>
+        </button>
       </div>
-      <div id="error" class="status-box hidden">
-        <span>Failed to load data.</span>
-        <button id="retryBtn" class="btn">Retry</button>
-      </div>
-      <div id="dnsList" class="dns-list"></div>
     </main>
   </div>
 
-  <script src="script.js"></script>
+  <script src="preview.js"></script>
 </body>
 </html>
