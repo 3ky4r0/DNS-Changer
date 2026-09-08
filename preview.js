@@ -20,39 +20,26 @@ async function initPreview() {
   const downloadBtn = document.getElementById("downloadBtn");
 
   const params = new URLSearchParams(window.location.search);
-  let key = params.get("key");
-
-  if (!key) {
-    const segments = window.location.pathname.split("/").filter(Boolean);
-    const last = segments[segments.length - 1];
-    if (last && !last.includes(".") && last.toLowerCase() !== "dns-changer") {
-      key = decodeURIComponent(last);
-    }
-  }
-
-  const isDhcp = key && (key.toLowerCase() === "dhcp" || key.toLowerCase() === "reset-dhcp");
+  const key = params.get("key");
 
   let currentFilename = "";
   let currentCode = "";
-  let currentTitle = key ? (isDhcp ? "Reset DHCP" : key) : "";
+  let currentTitle = key ? (key.toLowerCase() === "dhcp" ? "Reset DHCP" : key) : "";
 
   const cached = sessionStorage.getItem("preview_script");
   if (cached) {
     try {
       const parsed = JSON.parse(cached);
-      // Ensure cached script matches current key
       if (parsed.filename && parsed.code) {
-        if (!key || (isDhcp && parsed.title === "Reset DHCP") || (parsed.title === key)) {
-          currentFilename = parsed.filename;
-          currentCode = parsed.code;
-          if (parsed.title) currentTitle = parsed.title;
-        }
+        currentFilename = parsed.filename;
+        currentCode = parsed.code;
+        if (parsed.title) currentTitle = parsed.title;
       }
     } catch (e) {}
   }
 
   if (!currentCode && key) {
-    if (isDhcp) {
+    if (key.toLowerCase() === "dhcp") {
       currentFilename = "Restore_DHCP_DNS.bat";
       currentTitle = "Reset DHCP";
       currentCode = generateDHCPBatScript();
@@ -82,21 +69,13 @@ async function initPreview() {
   }
 
   if (!currentTitle) {
-    currentTitle = key ? (isDhcp ? "Reset DHCP" : key) : (currentFilename.replace(/_DNS\.bat$/i, "").replace(/_/g, " ") || "DNS Changer");
+    currentTitle = key ? (key.toLowerCase() === "dhcp" ? "Reset DHCP" : key) : (currentFilename.replace(/_DNS\.bat$/i, "").replace(/_/g, " ") || "DNS Changer");
   }
 
   document.title = currentTitle;
   if (detailFilename) detailFilename.textContent = currentFilename;
   detailCode.textContent = currentCode;
   lucide.createIcons();
-
-  // Clean URL to /Mullvad or /Reset-DHCP
-  try {
-    const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-    const cleanSlug = isDhcp ? "Reset-DHCP" : encodeURIComponent(key);
-    const cleanPath = basePath + cleanSlug;
-    window.history.replaceState({ key }, currentTitle, cleanPath);
-  } catch (e) {}
 
   copyCodeBtn.addEventListener("click", async () => {
     try {
@@ -129,7 +108,7 @@ async function initPreview() {
       code: script,
       title: "Reset DHCP"
     }));
-    window.location.href = "preview.html?key=Reset-DHCP";
+    window.location.href = "preview.html?key=dhcp";
   });
 }
 

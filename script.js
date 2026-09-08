@@ -147,13 +147,6 @@ const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test
   (navigator.userAgentData && navigator.userAgentData.mobile) ||
   (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
 
-if (window.location.pathname.endsWith("/index.html")) {
-  try {
-    const cleanHome = window.location.pathname.replace(/\/index\.html$/, "/");
-    window.history.replaceState({}, document.title, cleanHome + window.location.search + window.location.hash);
-  } catch (e) {}
-}
-
 if (isMobile) {
   document.getElementById("app")?.classList.add("hidden");
   document.getElementById("unsupportedDevice")?.classList.remove("hidden");
@@ -161,7 +154,7 @@ if (isMobile) {
 } else {
   dhcpBtn?.addEventListener("click", () => {
     const script = generateDHCPBatScript();
-    openPreviewPage("Restore_DHCP_DNS.bat", script, "Reset-DHCP", "Reset DHCP");
+    openPreviewPage("Restore_DHCP_DNS.bat", script, "dhcp", "Reset DHCP");
   });
 
   retryBtn?.addEventListener("click", fetchDNS);
