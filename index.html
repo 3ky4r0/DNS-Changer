@@ -23,7 +23,9 @@
   <div id="app" class="app">
     <header class="header">
       <div class="logo">
-        <h1>DNS Changer</h1>
+        <a href="./" id="homeLink" class="logo-link">
+          <h1>DNS Changer</h1>
+        </a>
       </div>
       <div class="header-actions">
         <button id="dhcpBtn" class="btn">Reset DHCP</button>
@@ -31,7 +33,7 @@
       </div>
     </header>
 
-    <main class="content-area">
+    <main id="listView" class="content-area">
       <div id="loading" class="status-box">
         <div class="spinner"></div>
       </div>
@@ -40,6 +42,18 @@
         <button id="retryBtn" class="btn">Retry</button>
       </div>
       <div id="dnsList" class="dns-list"></div>
+    </main>
+
+    <main id="detailView" class="content-area detail-view hidden">
+      <pre class="code-preview"><code id="detailCode"></code></pre>
+      <div class="detail-actions">
+        <button id="copyCodeBtn" class="btn btn-icon-btn" title="Copy" aria-label="Copy">
+          <i data-lucide="copy"></i>
+        </button>
+        <button id="downloadBtn" class="btn btn-icon-btn" title="Download .BAT" aria-label="Download .BAT">
+          <i data-lucide="download"></i>
+        </button>
+      </div>
     </main>
   </div>
 

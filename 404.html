@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DNS Changer</title>
+  <script>
+    (function () {
+      var loc = window.location;
+      var pathParts = loc.pathname.split("/").filter(Boolean);
+      var isGitHubPages = loc.hostname.endsWith("github.io");
+      var repo = (isGitHubPages && pathParts.length > 0) ? "/" + pathParts[0] + "/" : "/";
+      
+      var fullPath = loc.pathname + loc.search + loc.hash;
+      loc.replace(repo + "?r=" + encodeURIComponent(fullPath));
+    })();
+  </script>
+</head>
+<body>
+</body>
+</html>

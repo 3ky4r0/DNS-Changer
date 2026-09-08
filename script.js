@@ -1,12 +1,19 @@
 const DNS_URL = "https://raw.githubusercontent.com/ChrisTitusTech/winutil/refs/heads/main/config/dns.json";
 
 let dnsData = {};
+let currentDetail = { filename: "", code: "", title: "" };
 
+const listView = document.getElementById("listView");
+const detailView = document.getElementById("detailView");
 const dnsList = document.getElementById("dnsList");
 const loadingEl = document.getElementById("loading");
 const errorEl = document.getElementById("error");
-const dhcpBtn = document.getElementById("dhcpBtn");
 const retryBtn = document.getElementById("retryBtn");
+const dhcpBtn = document.getElementById("dhcpBtn");
+const homeLink = document.getElementById("homeLink");
+const detailCode = document.getElementById("detailCode");
+const copyCodeBtn = document.getElementById("copyCodeBtn");
+const downloadBtn = document.getElementById("downloadBtn");
 
 async function fetchDNS() {
   loadingEl.classList.remove("hidden");
@@ -19,11 +26,69 @@ async function fetchDNS() {
     dnsData = await res.json();
     loadingEl.classList.add("hidden");
     renderList(dnsData);
+    handleRoute();
   } catch (err) {
     loadingEl.classList.add("hidden");
     errorEl.classList.remove("hidden");
   }
-  lucide.createIcons();
+}
+
+function getBasePath() {
+  const isGitHubPages = window.location.hostname.endsWith("github.io");
+  const pathParts = window.location.pathname.split("/").filter(Boolean);
+  if (isGitHubPages && pathParts.length > 0) {
+    return `/${pathParts[0]}/`;
+  }
+  const repoIdx = window.location.pathname.indexOf("/DNS-Changer");
+  if (repoIdx !== -1) {
+    return window.location.pathname.substring(0, repoIdx + 12) + "/";
+  }
+  return "/";
+}
+
+function getCurrentRoute() {
+  // Check if redirected from 404.html via ?r=...
+  const params = new URLSearchParams(window.location.search);
+  const redirectPath = params.get("r");
+  if (redirectPath) {
+    try {
+      window.history.replaceState(null, "", redirectPath);
+    } catch (e) {}
+  }
+
+  // Also support legacy hash if someone accesses #Mullvad
+  if (window.location.hash) {
+    const hashKey = window.location.hash.replace(/^#\/?/, "").trim();
+    if (hashKey) {
+      const basePath = getBasePath();
+      try {
+        window.history.replaceState(null, "", `${basePath}${encodeURIComponent(hashKey)}`);
+      } catch (e) {}
+      return decodeURIComponent(hashKey);
+    }
+  }
+
+  const pathname = window.location.pathname;
+  const basePath = getBasePath();
+  
+  let route = "";
+  if (pathname.startsWith(basePath)) {
+    route = pathname.slice(basePath.length);
+  } else {
+    route = pathname.replace(/^\//, "");
+  }
+  
+  route = route.replace(/\/+$/, "").replace(/^index\.html/i, "").trim();
+  return decodeURIComponent(route);
+}
+
+function navigateTo(routeKey) {
+  const basePath = getBasePath();
+  const newUrl = routeKey ? `${basePath}${encodeURIComponent(routeKey)}` : basePath;
+  try {
+    window.history.pushState(null, "", newUrl);
+  } catch (e) {}
+  handleRoute();
 }
 
 function renderList(data) {
@@ -46,13 +111,65 @@ function renderList(data) {
     `;
 
     row.addEventListener("click", () => {
-      const script = generateBatScript(key, item);
-      const filename = `${key.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`;
-      openPreviewPage(filename, script, key, key);
+      navigateTo(key);
     });
 
     dnsList.appendChild(row);
   });
+}
+
+function showListView() {
+  document.title = "DNS Changer";
+  detailView.classList.add("hidden");
+  listView.classList.remove("hidden");
+}
+
+function showDetailView(filename, code, title) {
+  currentDetail = { filename, code, title };
+  document.title = title;
+  detailCode.textContent = code;
+  resetCopyBtn();
+  listView.classList.add("hidden");
+  detailView.classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "instant" });
+  lucide.createIcons();
+}
+
+function handleRoute() {
+  const route = getCurrentRoute();
+
+  if (!route) {
+    showListView();
+    return;
+  }
+
+  if (route.toLowerCase() === "dhcp") {
+    const script = generateDHCPBatScript();
+    showDetailView("Restore_DHCP_DNS.bat", script, "Reset DHCP");
+    return;
+  }
+
+  // If DNS data has loaded, search for key
+  if (Object.keys(dnsData).length > 0) {
+    const matchedKey = Object.keys(dnsData).find(
+      k => k.toLowerCase() === route.toLowerCase()
+    );
+
+    if (matchedKey) {
+      const item = dnsData[matchedKey];
+      const script = generateBatScript(matchedKey, item);
+      const filename = `${matchedKey.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`;
+      showDetailView(filename, script, matchedKey);
+      return;
+    }
+
+    // Key not found in loaded data
+    showListView();
+  }
+}
+
+function resetCopyBtn() {
+  copyCodeBtn.innerHTML = '<i data-lucide="copy"></i>';
 }
 
 function escapeHtml(str) {
@@ -138,11 +255,6 @@ function downloadFile(filename, text) {
   URL.revokeObjectURL(link.href);
 }
 
-function openPreviewPage(filename, code, key, title) {
-  sessionStorage.setItem("preview_script", JSON.stringify({ filename, code, title: title || key }));
-  window.location.href = `preview.html?key=${encodeURIComponent(key)}`;
-}
-
 const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
   (navigator.userAgentData && navigator.userAgentData.mobile) ||
   (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
@@ -152,12 +264,53 @@ if (isMobile) {
   document.getElementById("unsupportedDevice")?.classList.remove("hidden");
   lucide.createIcons();
 } else {
+  // Navigation events
+  window.addEventListener("popstate", handleRoute);
+  window.addEventListener("hashchange", handleRoute);
+
+  homeLink?.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigateTo("");
+  });
+
   dhcpBtn?.addEventListener("click", () => {
-    const script = generateDHCPBatScript();
-    openPreviewPage("Restore_DHCP_DNS.bat", script, "dhcp", "Reset DHCP");
+    navigateTo("dhcp");
   });
 
   retryBtn?.addEventListener("click", fetchDNS);
+
+  // Detail actions
+  copyCodeBtn?.addEventListener("click", async () => {
+    if (!currentDetail.code) return;
+    try {
+      await navigator.clipboard.writeText(currentDetail.code);
+      copyCodeBtn.innerHTML = '<i data-lucide="check"></i>';
+      lucide.createIcons();
+      setTimeout(() => {
+        resetCopyBtn();
+        lucide.createIcons();
+      }, 1500);
+    } catch {
+      // Fallback if clipboard API is restricted
+      const textarea = document.createElement("textarea");
+      textarea.value = currentDetail.code;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      copyCodeBtn.innerHTML = '<i data-lucide="check"></i>';
+      lucide.createIcons();
+      setTimeout(() => {
+        resetCopyBtn();
+        lucide.createIcons();
+      }, 1500);
+    }
+  });
+
+  downloadBtn?.addEventListener("click", () => {
+    if (!currentDetail.code || !currentDetail.filename) return;
+    downloadFile(currentDetail.filename, currentDetail.code);
+  });
 
   lucide.createIcons();
   fetchDNS();
