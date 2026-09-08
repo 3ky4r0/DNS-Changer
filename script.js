@@ -43,8 +43,8 @@ function renderList(data) {
         <span class="dns-title">${escapeHtml(key)}</span>
         <div class="ip-list">IPv4: ${escapeHtml(v4)} | IPv6: ${escapeHtml(v6)}</div>
       </div>
-      <button class="btn btn-primary download-item-btn" data-key="${escapeHtml(key)}">
-        Download .BAT
+      <button class="btn download-item-btn" data-key="${escapeHtml(key)}" title="Download .BAT" aria-label="Download .BAT">
+        <i data-lucide="download"></i>
       </button>
     `;
 
@@ -140,11 +140,22 @@ function downloadFile(filename, text) {
   URL.revokeObjectURL(link.href);
 }
 
-dhcpBtn.addEventListener("click", () => {
-  const script = generateDHCPBatScript();
-  downloadFile("Restore_DHCP_DNS.bat", script);
-});
+const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+  (navigator.userAgentData && navigator.userAgentData.mobile) ||
+  (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
 
-retryBtn.addEventListener("click", fetchDNS);
+if (isMobile) {
+  document.getElementById("app")?.classList.add("hidden");
+  document.getElementById("unsupportedDevice")?.classList.remove("hidden");
+  lucide.createIcons();
+} else {
+  dhcpBtn.addEventListener("click", () => {
+    const script = generateDHCPBatScript();
+    downloadFile("Restore_DHCP_DNS.bat", script);
+  });
 
-fetchDNS();
+  retryBtn.addEventListener("click", fetchDNS);
+
+  lucide.createIcons();
+  fetchDNS();
+}

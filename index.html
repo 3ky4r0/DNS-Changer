@@ -9,13 +9,24 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-  <div class="app">
+  <div id="unsupportedDevice" class="unsupported-device hidden">
+    <div class="unsupported-content">
+      <i data-lucide="monitor"></i>
+      <h1>Windows Only</h1>
+      <p>This tool only supports Windows. Please open this page on a Windows PC.</p>
+    </div>
+  </div>
+
+  <div id="app" class="app">
     <header class="header">
       <div class="logo">
         <i data-lucide="network"></i>
         <h1>DNS Changer</h1>
       </div>
-      <button id="dhcpBtn" class="btn">Reset DHCP</button>
+      <div class="header-actions">
+        <button id="dhcpBtn" class="btn">Reset DHCP</button>
+        <a href="https://github.com/3ky4r0/DNS-Changer" target="_blank" rel="noopener noreferrer" class="btn">GitHub</a>
+      </div>
     </header>
 
     <main class="content-area">
