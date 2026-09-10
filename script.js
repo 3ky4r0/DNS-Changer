@@ -26,69 +26,38 @@ async function fetchDNS() {
     dnsData = await res.json();
     loadingEl.classList.add("hidden");
     renderList(dnsData);
-    handleRoute();
+    checkUrlParams();
   } catch (err) {
     loadingEl.classList.add("hidden");
     errorEl.classList.remove("hidden");
   }
 }
 
-function getBasePath() {
-  const isGitHubPages = window.location.hostname.endsWith("github.io");
-  const pathParts = window.location.pathname.split("/").filter(Boolean);
-  if (isGitHubPages && pathParts.length > 0) {
-    return `/${pathParts[0]}/`;
-  }
-  const repoIdx = window.location.pathname.indexOf("/DNS-Changer");
-  if (repoIdx !== -1) {
-    return window.location.pathname.substring(0, repoIdx + 12) + "/";
-  }
-  return "/";
-}
-
-function getCurrentRoute() {
-  // Check if redirected from 404.html via ?r=...
+function checkUrlParams() {
   const params = new URLSearchParams(window.location.search);
-  const redirectPath = params.get("r");
-  if (redirectPath) {
-    try {
-      window.history.replaceState(null, "", redirectPath);
-    } catch (e) {}
+  const dnsParam = params.get("dns");
+  const isDhcp = params.has("dhcp") || (dnsParam && dnsParam.toLowerCase() === "dhcp");
+
+  if (isDhcp) {
+    const script = generateDHCPBatScript();
+    showDetailView("Restore_DHCP_DNS.bat", script, "Reset DHCP");
+    return;
   }
 
-  // Also support legacy hash if someone accesses #Mullvad
-  if (window.location.hash) {
-    const hashKey = window.location.hash.replace(/^#\/?/, "").trim();
-    if (hashKey) {
-      const basePath = getBasePath();
-      try {
-        window.history.replaceState(null, "", `${basePath}${encodeURIComponent(hashKey)}`);
-      } catch (e) {}
-      return decodeURIComponent(hashKey);
+  if (dnsParam && Object.keys(dnsData).length > 0) {
+    const matchedKey = Object.keys(dnsData).find(
+      k => k.toLowerCase() === dnsParam.toLowerCase()
+    );
+    if (matchedKey) {
+      const item = dnsData[matchedKey];
+      const script = generateBatScript(matchedKey, item);
+      const filename = `${matchedKey.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`;
+      showDetailView(filename, script, matchedKey);
+      return;
     }
   }
 
-  const pathname = window.location.pathname;
-  const basePath = getBasePath();
-  
-  let route = "";
-  if (pathname.startsWith(basePath)) {
-    route = pathname.slice(basePath.length);
-  } else {
-    route = pathname.replace(/^\//, "");
-  }
-  
-  route = route.replace(/\/+$/, "").replace(/^index\.html/i, "").trim();
-  return decodeURIComponent(route);
-}
-
-function navigateTo(routeKey) {
-  const basePath = getBasePath();
-  const newUrl = routeKey ? `${basePath}${encodeURIComponent(routeKey)}` : basePath;
-  try {
-    window.history.pushState(null, "", newUrl);
-  } catch (e) {}
-  handleRoute();
+  showListView();
 }
 
 function renderList(data) {
@@ -111,7 +80,14 @@ function renderList(data) {
     `;
 
     row.addEventListener("click", () => {
-      navigateTo(key);
+      const script = generateBatScript(key, item);
+      const filename = `${key.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`;
+      showDetailView(filename, script, key);
+      try {
+        const url = new URL(window.location);
+        url.search = `?dns=${encodeURIComponent(key)}`;
+        window.history.pushState(null, "", url);
+      } catch (e) {}
     });
 
     dnsList.appendChild(row);
@@ -135,39 +111,6 @@ function showDetailView(filename, code, title) {
   lucide.createIcons();
 }
 
-function handleRoute() {
-  const route = getCurrentRoute();
-
-  if (!route) {
-    showListView();
-    return;
-  }
-
-  if (route.toLowerCase() === "dhcp") {
-    const script = generateDHCPBatScript();
-    showDetailView("Restore_DHCP_DNS.bat", script, "Reset DHCP");
-    return;
-  }
-
-  // If DNS data has loaded, search for key
-  if (Object.keys(dnsData).length > 0) {
-    const matchedKey = Object.keys(dnsData).find(
-      k => k.toLowerCase() === route.toLowerCase()
-    );
-
-    if (matchedKey) {
-      const item = dnsData[matchedKey];
-      const script = generateBatScript(matchedKey, item);
-      const filename = `${matchedKey.replace(/[^a-zA-Z0-9_-]/g, '_')}_DNS.bat`;
-      showDetailView(filename, script, matchedKey);
-      return;
-    }
-
-    // Key not found in loaded data
-    showListView();
-  }
-}
-
 function resetCopyBtn() {
   copyCodeBtn.innerHTML = '<i data-lucide="copy"></i>';
 }
@@ -184,31 +127,61 @@ function escapeHtml(str) {
 function generateBatScript(providerName, providerData) {
   const v4 = [providerData.Primary, providerData.Secondary].filter(Boolean);
   const v6 = [providerData.Primary6, providerData.Secondary6].filter(Boolean);
+  const allIps = v4.concat(v6);
   const dohTemplate = providerData.DohTemplate || "";
-  const dohOnly = providerData.DohOnly || false;
+  const secDohTemplate = providerData.SecondaryDohTemplate || "";
+  const dohOnly = Boolean(providerData.DohOnly);
+  const secIps = [providerData.Secondary, providerData.Secondary6].filter(Boolean);
 
-  let psScript = `$adapters = Get-NetAdapter | Where-Object {$_.Status -eq 'Up'}; ` +
-    `if (-not $adapters) { Write-Host 'No active network adapters found.' -ForegroundColor Red; exit }; ` +
-    `foreach ($a in $adapters) { ` +
-    `Write-Host 'Configuring adapter:' $a.Name; `;
+  let commands = [];
+  commands.push(`$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }`);
+  commands.push(`if (-not $adapters) { Write-Host 'No active network adapters found.' -ForegroundColor Red; exit }`);
 
-  if (v4.length) {
-    const ips = v4.map(ip => `'${ip}'`).join(',');
-    psScript += `Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses (${ips}); `;
+  commands.push(`$dohSupported = [bool](Get-Command Add-DnsClientDohServerAddress -ErrorAction SilentlyContinue)`);
+  if (dohOnly) {
+    commands.push(`if (-not $dohSupported) { Write-Warning 'DNS provider ${providerName} requires DNS over HTTPS (DoH), which is not supported on this Windows version.'; exit }`);
   }
-  if (v6.length) {
-    const ips = v6.map(ip => `'${ip}'`).join(',');
-    psScript += `Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses (${ips}); `;
+
+  // 1. One-shot DoH query into RAM: 0ms in-memory lookup instead of 1000ms WMI calls
+  if (dohTemplate) {
+    let dohSetup = `if ($dohSupported) { ` +
+      `$existingDoh = @(Get-DnsClientDohServerAddress -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ServerAddress); `;
+    allIps.forEach(ip => {
+      const template = (secDohTemplate && secIps.includes(ip)) ? secDohTemplate : dohTemplate;
+      const fallback = dohOnly ? '$false' : '$true';
+      dohSetup += `if ($existingDoh -contains '${ip}') { ` +
+        `Set-DnsClientDohServerAddress -ServerAddress '${ip}' -DohTemplate '${template}' -AllowFallbackToUdp ${fallback} -AutoUpgrade $true -ErrorAction SilentlyContinue; ` +
+        `} else { ` +
+        `Write-Host 'Registering DoH: ${ip}...'; ` +
+        `Add-DnsClientDohServerAddress -ServerAddress '${ip}' -DohTemplate '${template}' -AllowFallbackToUdp ${fallback} -AutoUpgrade $true -ErrorAction SilentlyContinue; ` +
+        `}; `;
+    });
+    dohSetup += `}`;
+    commands.push(dohSetup);
   }
+
+  // 2. Set all IPv4 and IPv6 together in 1 command, and use fast native reg.exe (<5ms)
+  const ipsFormatted = allIps.map(ip => `'${ip}'`).join(',');
+  let adapterLoop = `foreach ($a in $adapters) { ` +
+    `Write-Host ('Configuring adapter: ' + $a.Name) -ForegroundColor Cyan; ` +
+    `Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses @(${ipsFormatted}) -ErrorAction Stop; `;
 
   if (dohTemplate) {
-    v4.concat(v6).forEach(ip => {
-      const mode = dohOnly ? "DohOnly" : "DohWithFallback";
-      psScript += `try { Add-DnsClientDohServerAddress -ServerAddress '${ip}' -DohTemplate '${dohTemplate}' -AllowDohAutoUpgrade $true -ErrorAction SilentlyContinue; Set-DnsClientDohServerAddress -ServerAddress '${ip}' -AutoUpgradeState ${mode} -ErrorAction SilentlyContinue } catch {}; `;
+    adapterLoop += `if ($dohSupported) { `;
+    allIps.forEach(ip => {
+      const leaf = ip.includes(':') ? 'Doh6' : 'Doh';
+      adapterLoop += `reg.exe add ('HKLM\\System\\CurrentControlSet\\Services\\Dnscache\\InterfaceSpecificParameters\\' + $a.InterfaceGuid + '\\DohInterfaceSettings\\${leaf}\\${ip}') /v DohFlags /t REG_QWORD /d 1 /f | Out-Null; `;
     });
+    adapterLoop += `}; `;
   }
 
-  psScript += `}; Write-Host 'Flushing DNS cache...'; ipconfig /flushdns > $null; Write-Host 'DNS configured successfully.' -ForegroundColor Green;`;
+  adapterLoop += `}`;
+  commands.push(adapterLoop);
+
+  // 3. Native Win32 DNS flush (30ms)
+  commands.push(`Write-Host 'Flushing DNS cache...'; ipconfig /flushdns | Out-Null; Write-Host 'DNS configured successfully: ${providerName}' -ForegroundColor Green`);
+
+  const psScript = commands.join('; ');
 
   return `@echo off
 :: Self-elevate script to Administrator
@@ -225,12 +198,18 @@ pause
 }
 
 function generateDHCPBatScript() {
-  const psScript = `$adapters = Get-NetAdapter | Where-Object {$_.Status -eq 'Up'}; ` +
-    `if (-not $adapters) { Write-Host 'No active network adapters found.' -ForegroundColor Red; exit }; ` +
+  const psScript = [
+    `$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }`,
+    `if (-not $adapters) { Write-Host 'No active network adapters found.' -ForegroundColor Red; exit }`,
     `foreach ($a in $adapters) { ` +
-    `Write-Host 'Resetting adapter:' $a.Name; ` +
-    `Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ResetServerAddresses; ` +
-    `}; Write-Host 'Flushing DNS cache...'; ipconfig /flushdns > $null; Write-Host 'DHCP restored successfully.' -ForegroundColor Green;`;
+      `Write-Host ('Resetting adapter: ' + $a.Name) -ForegroundColor Cyan; ` +
+      `Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ResetServerAddresses; ` +
+      `reg.exe delete ('HKLM\\System\\CurrentControlSet\\Services\\Dnscache\\InterfaceSpecificParameters\\' + $a.InterfaceGuid + '\\DohInterfaceSettings') /f 2>$null | Out-Null; ` +
+    `}`,
+    `Write-Host 'Flushing DNS cache...'`,
+    `ipconfig /flushdns | Out-Null`,
+    `Write-Host 'DHCP restored successfully.' -ForegroundColor Green`
+  ].join('; ');
 
   return `@echo off
 :: Self-elevate script to Administrator
@@ -265,16 +244,28 @@ if (isMobile) {
   lucide.createIcons();
 } else {
   // Navigation events
-  window.addEventListener("popstate", handleRoute);
-  window.addEventListener("hashchange", handleRoute);
+  window.addEventListener("popstate", () => {
+    checkUrlParams();
+  });
 
   homeLink?.addEventListener("click", (e) => {
     e.preventDefault();
-    navigateTo("");
+    showListView();
+    try {
+      const url = new URL(window.location);
+      url.search = "";
+      window.history.pushState(null, "", url);
+    } catch (e) {}
   });
 
   dhcpBtn?.addEventListener("click", () => {
-    navigateTo("dhcp");
+    const script = generateDHCPBatScript();
+    showDetailView("Restore_DHCP_DNS.bat", script, "Reset DHCP");
+    try {
+      const url = new URL(window.location);
+      url.search = "?dhcp";
+      window.history.pushState(null, "", url);
+    } catch (e) {}
   });
 
   retryBtn?.addEventListener("click", fetchDNS);
